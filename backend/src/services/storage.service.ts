@@ -43,30 +43,42 @@ export class StorageService {
     // Already a full URL — return as-is
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
 
+    // Normalize Windows backslashes → forward slashes
+    const normalized = filePath.replace(/\\/g, '/');
+
+    // Detect a local filesystem path:
+    //   - absolute Windows path  e.g. D:/git/music/backend/uploads/...
+    //   - contains 'uploads/'    e.g. ./uploads/audio/... or uploads/audio/...
+    const isLocalPath =
+      /^[a-zA-Z]:\//.test(normalized) ||        // C:/ D:/ etc.
+      normalized.startsWith('/') ||              // Unix absolute
+      normalized.includes('uploads/');
+
+    if (isLocalPath) {
+      // Always serve local files through the Express static handler,
+      // even when STORAGE_TYPE is r2/s3 (handles files imported before migration)
+      const uploadsIdx = normalized.indexOf('uploads/');
+      if (uploadsIdx >= 0) {
+        return `${BACKEND_URL}/${normalized.slice(uploadsIdx)}`;
+      }
+      return `${BACKEND_URL}/${normalized}`;
+    }
+
+    // ── Cloud storage paths (short keys like "audio/file.mp3") ───────────────
+
     if (STORAGE_TYPE === 's3') {
       const cdnUrl = process.env.AWS_S3_CDN_URL;
-      return cdnUrl ? `${cdnUrl}/${filePath}` : filePath;
+      return cdnUrl ? `${cdnUrl}/${normalized}` : normalized;
     }
 
     if (STORAGE_TYPE === 'r2') {
-      // R2_PUBLIC_URL = your R2 public bucket URL or custom domain
-      // e.g. https://pub-xxxx.r2.dev  OR  https://cdn.yourdomain.com
       const r2Url = process.env.R2_PUBLIC_URL;
       if (!r2Url) throw new Error('R2_PUBLIC_URL is required when STORAGE_TYPE=r2');
-      return `${r2Url.replace(/\/$/, '')}/${filePath}`;
+      return `${r2Url.replace(/\/$/, '')}/${normalized}`;
     }
 
-    // Normalize Windows backslashes to forward slashes
-    const normalized = filePath.replace(/\\/g, '/');
-
-    // Find 'uploads/' in the path and use everything from that point
-    const uploadsIdx = normalized.indexOf('uploads/');
-    if (uploadsIdx >= 0) {
-      return `${BACKEND_URL}/${normalized.slice(uploadsIdx)}`;
-    }
-
-    // Fallback: just append as-is
-    return `${BACKEND_URL}/${normalized}`;
+    // local storage key without 'uploads/' prefix — serve via backend
+    return `${BACKEND_URL}/uploads/${normalized}`;
   }
 
   /**
