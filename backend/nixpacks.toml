@@ -1,0 +1,6 @@
+# Railway / Nixpacks — installs system dependencies for the backend
+# ffmpeg  : audio conversion
+# yt-dlp  : YouTube audio download
+
+[phases.setup]
+nixPkgs = ["ffmpeg", "python312Packages.yt-dlp"]

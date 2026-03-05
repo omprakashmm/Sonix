@@ -1,0 +1,245 @@
+// ============================================================
+//  OpenWave — Prisma Database Schema
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String
+  username      String    @unique
+  password      String?   // null for OAuth users
+  avatar        String?
+  role          Role      @default(USER)
+  bio           String?
+
+  // Relations
+  tracks        Track[]
+  playlists     Playlist[]
+  likedTracks   LikedTrack[]
+  playHistory   PlayHistory[]
+  sessions      Session[]
+  accounts      Account[]
+  importJobs    ImportJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([username])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ─── NextAuth.js Adapter Models ──────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Track ───────────────────────────────────────────────────
+model Track {
+  id         String      @id @default(cuid())
+  title      String
+  artist     String
+  album      String?
+  genre      String?
+  duration   Float       // seconds
+  fileUrl    String      // local path or S3 URL
+  fileSize   Int?        // bytes
+  bitrate    Int?        // kbps
+  format     AudioFormat @default(MP3)
+  coverUrl   String?
+  lyrics     String?     @db.Text
+  source     TrackSource @default(UPLOAD)
+  sourceUrl  String?     // original YouTube/SoundCloud URL
+  playCount  Int         @default(0)
+  likeCount  Int         @default(0)
+  isPublic   Boolean     @default(true)
+
+  // Relations
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likedBy     LikedTrack[]
+  playHistory PlayHistory[]
+  playlists   PlaylistTrack[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([title])
+  @@index([artist])
+  @@index([genre])
+  @@index([source])
+  @@index([createdAt])
+  @@index([playCount])
+  // Full-text search index
+  @@index([title, artist])
+}
+
+enum AudioFormat {
+  MP3
+  FLAC
+  WAV
+  AAC
+  M4A
+  OGG
+}
+
+enum TrackSource {
+  UPLOAD
+  YOUTUBE
+  SOUNDCLOUD
+}
+
+// ─── Playlist ────────────────────────────────────────────────
+model Playlist {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  coverUrl        String?
+  isPublic        Boolean  @default(false)
+  isSmartPlaylist Boolean  @default(false)
+  smartConfig     Json?    // SmartPlaylistConfig JSON
+
+  // Relations
+  userId  String
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks  PlaylistTrack[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isPublic])
+}
+
+// ─── PlaylistTrack (join table) ──────────────────────────────
+model PlaylistTrack {
+  id         String   @id @default(cuid())
+  position   Int      @default(0)
+  playlistId String
+  trackId    String
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  addedAt DateTime @default(now())
+
+  @@unique([playlistId, trackId])
+  @@index([playlistId])
+  @@index([trackId])
+}
+
+// ─── LikedTrack ──────────────────────────────────────────────
+model LikedTrack {
+  id      String @id @default(cuid())
+  userId  String
+  trackId String
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  likedAt DateTime @default(now())
+
+  @@unique([userId, trackId])
+  @@index([userId])
+  @@index([trackId])
+}
+
+// ─── Play History ────────────────────────────────────────────
+model PlayHistory {
+  id         String @id @default(cuid())
+  userId     String
+  trackId    String
+  playedAt   DateTime @default(now())
+  duration   Float?   // how long they actually listened (seconds)
+  completed  Boolean  @default(false)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([trackId])
+  @@index([playedAt])
+  @@index([userId, playedAt])
+}
+
+// ─── Import Job ──────────────────────────────────────────────
+model ImportJob {
+  id        String          @id @default(cuid())
+  url       String
+  status    ImportJobStatus @default(QUEUED)
+  progress  Int             @default(0)
+  title     String?
+  artist    String?
+  thumbnail String?
+  error     String?
+  trackId   String?         // set when complete
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum ImportJobStatus {
+  QUEUED
+  DOWNLOADING
+  CONVERTING
+  FETCHING_META
+  DONE
+  ERROR
+}

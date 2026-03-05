@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Uploads & media
+uploads/
+*.mp3
+*.mp4
+*.flac
+*.wav
+*.aac
+*.m4a
+*.webm
+*.ogg
+!public/**
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime
+.DS_Store
+Thumbs.db
+*.pem
+
+# Testing
+coverage/
+
+# Prisma
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+.cache/
+.parcel-cache/
+tmp/
+temp/
