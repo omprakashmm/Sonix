@@ -11,7 +11,7 @@
 | Frontend | Vite 5 + React + React Router | **Vercel** (free) |
 | Backend | Node.js + Express + Prisma | **Railway** (free tier) |
 | Database | PostgreSQL | **Supabase** (already configured) |
-| Audio storage | Local disk  S3 in production | AWS S3 |
+| Audio storage | Cloudflare R2 | Cloudflare R2 (free 10 GB / mo) |
 
 ---
 
@@ -57,7 +57,12 @@ git push origin main
 | `JWT_EXPIRES_IN` | `7d` |
 | `REFRESH_TOKEN_SECRET` | Another random string |
 | `ALLOWED_ORIGINS` | `https://your-app.vercel.app` |
-| `STORAGE_TYPE` | `local` (or `s3`) |
+| `STORAGE_TYPE` | `r2` |
+| `R2_ACCOUNT_ID` | From Cloudflare dashboard |
+| `R2_ACCESS_KEY_ID` | R2 API token |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `R2_BUCKET` | Your R2 bucket name |
+| `R2_PUBLIC_URL` | Your R2 public domain |
 
 ### 2.4 Add ffmpeg + yt-dlp (create `backend/nixpacks.toml`)
 
@@ -143,7 +148,7 @@ npm run dev:all
 - [ ] `JWT_SECRET` is a random 64+ char string (never commit it)
 - [ ] `NODE_ENV=production` on Railway (enables rate limiting)
 - [ ] `ALLOWED_ORIGINS` matches Vercel domain exactly
-- [ ] Use `STORAGE_TYPE=s3` in production (local disk is ephemeral on Railway)
+- [ ] Use `STORAGE_TYPE=r2` in production with valid R2 credentials (local disk is ephemeral on Railway)
 - [ ] `backend/.env` is in `.gitignore` (already done)
 - [ ] Run `npx prisma migrate deploy` after every schema change
 
