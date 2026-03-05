@@ -49,7 +49,14 @@ export const defaultUser = async (req: Request, _res: Response, next: NextFuncti
     (req as any).user = { id: cachedUserId, role: cachedUserRole || 'USER' };
     next();
   } catch (err) {
-    next(err);
+    // DB unreachable (e.g. Supabase free tier paused) — use a stable fallback
+    // so the server remains operational. Requests will work; DB writes will
+    // fail later with clearer errors rather than crashing everything here.
+    // cachedUserId intentionally NOT set so the next request retries the DB.
+    logger.warn(`defaultUser middleware DB error — using offline fallback: ${err}`);
+    const fallbackId = process.env.DEFAULT_USER_FALLBACK_ID || 'offline-default-user';
+    (req as any).user = { id: fallbackId, role: 'USER' };
+    next();
   }
 };
 
